@@ -1,0 +1,21 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Scommerce\GoogleTagManagerPro\Block\CookieScript $viewModel */
+$viewModel = $block->getData('view_model');
+$cookiesToSet = $viewModel->cookiesToSet();
+if (!$viewModel->isEnabled() || !$cookiesToSet) {
+    return;
+}
+?>
+<script type="text/javascript"<?= /* @noEscape */ $viewModel->getNonce() ?>>
+(function () {
+    'use strict';
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (<?= (int) $viewModel->cookieLifeTime() ?> * 24 * 60 * 60 * 1000));
+    const cookies = <?= /* @noEscape */ json_encode($cookiesToSet, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+    Object.keys(cookies).forEach(function (name) {
+        document.cookie = encodeURIComponent(name) + '=' + encodeURIComponent(cookies[name])
+            + '; expires=' + expires.toUTCString() + '; path=/';
+    });
+})();
+</script>

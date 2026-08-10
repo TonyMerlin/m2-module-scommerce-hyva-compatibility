@@ -1,0 +1,22 @@
+{
+  "name": "merlin/module-scommerce-hyva-compatibility",
+  "description": "Hyva compatibility layer for Scommerce TrackingBase and GoogleTagManagerPro",
+  "type": "magento2-module",
+  "version": "1.0.0",
+  "license": "proprietary",
+  "autoload": {
+    "files": [
+      "registration.php"
+    ],
+    "psr-4": {
+      "Merlin\\ScommerceHyvaCompatibility\\": ""
+    }
+  },
+  "require": {
+    "php": ">=8.1",
+    "magento/framework": "*",
+    "scommerce/trackingbase": "2.0.39",
+    "scommerce/googletagmanagerpro": "3.0.46",
+    "hyva-themes/magento2-theme-module": "*"
+  }
+}

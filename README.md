@@ -2,6 +2,11 @@
 
 HyvÃ compatibility layer for the Scommerce tracking and Google Tag Manager Pro extensions used on Magento 2 storefronts.
 
+
+#v1.0.1
+Added CSP whitelist to cover https://ad.doubleclick.net
+
+
 This module allows the existing Scommerce tracking stack to operate on a HyvÃ storefront **without loading RequireJS, jQuery, Knockout, Magento UI components, `mage/*` AMD modules, or other Luma frontend dependencies into HyvÃ**.
 
 The module does **not** replace Scommerce as the source of tracking data. Wherever possible it keeps the existing Scommerce PHP-side implementation, configuration, observers, controllers, session state, product/category generation, quote attribution, GA4 payload conventions, and dynamic remarketing rules. It replaces only the browser-side execution layer that is incompatible with HyvÃ.

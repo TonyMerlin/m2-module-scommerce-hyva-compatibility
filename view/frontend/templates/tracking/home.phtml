@@ -1,0 +1,14 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Scommerce\TrackingBase\ViewModel\TrackingDataContainer $viewModel */
+$viewModel = $block->getData('view_model');
+if (!$viewModel->isEnabled()) {
+    return;
+}
+?>
+<script type="text/javascript"<?= /* @noEscape */ $viewModel->getNonce() ?>>
+window.ScommerceHyva.getTracking().fire(
+    'home_page',
+    (window.ScommerceHyva.getTracking().getPageType() || 'home').toLowerCase()
+);
+</script>

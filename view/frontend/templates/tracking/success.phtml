@@ -1,0 +1,23 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Scommerce\TrackingBase\ViewModel\Checkout\Success $viewModel */
+$viewModel = $block->getData('view_model');
+$viewModel->setBlock($block);
+$helper = $viewModel->getHelper();
+if (!($helper->isEnabled() && $helper->isEnhancedEcommerceEnabled())) {
+    return;
+}
+?>
+<script type="text/javascript"<?= /* @noEscape */ $helper->getNonce() ?>>
+(function () {
+    'use strict';
+    const tracking = window.ScommerceHyva.getTracking();
+    tracking.setData('is_customer_new', <?= /* @noEscape */ json_encode((string) $viewModel->getIsCustomerNew()) ?>);
+    <?php if ($helper->isEnhancedConversionEnabled()): ?>
+    tracking.setData('conversion_items', <?= /* @noEscape */ json_encode($viewModel->getConversionItems(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>);
+    tracking.setData('conversion_pii', <?= /* @noEscape */ json_encode($viewModel->getConversionData(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>);
+    <?php endif; ?>
+    tracking.setPurchaseData(<?= /* @noEscape */ json_encode($viewModel->getPurchaseData(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>);
+    tracking.fire('page_ready', (tracking.getPageType() || 'purchase').toLowerCase());
+})();
+</script>

@@ -1,0 +1,28 @@
+<?php
+/** @var \Scommerce\TrackingBase\Block\Checkout\Multisuccess $block */
+/** @var \Scommerce\TrackingBase\ViewModel\Checkout\Multisuccess $viewModel */
+$viewModel = $block->getData('view_model');
+$helper = $viewModel->getHelper();
+if (!($helper->isEnabled() && $helper->isEnhancedEcommerceEnabled())) {
+    return;
+}
+$order = $block->getOrder();
+if ($order) {
+    echo $block->getLayout()
+        ->createBlock(\Scommerce\TrackingBase\Block\Checkout\Order::class)
+        ->setTemplate('Merlin_ScommerceHyvaCompatibility::tracking/order.phtml')
+        ->setData('view_model', $viewModel)
+        ->setFirstOrder($order)
+        ->toHtml();
+}
+?>
+<div style="display:none" aria-hidden="true">
+    <?php foreach ($block->getAdditionalOrders() as $id => $incrementId): ?>
+        <iframe loading="eager"
+                src="<?= $escaper->escapeUrl($block->getUrl('sctracking/index/order', [
+                    'id' => $incrementId,
+                    'token' => $block->getToken($id, $incrementId),
+                ])) ?>"
+                title="<?= $escaper->escapeHtmlAttr(__('Additional order tracking')) ?>"></iframe>
+    <?php endforeach; ?>
+</div>

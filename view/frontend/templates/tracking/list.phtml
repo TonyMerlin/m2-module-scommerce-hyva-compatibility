@@ -1,0 +1,81 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Scommerce\TrackingBase\ViewModel\ListProduct $viewModel */
+$viewModel = $block->getData('view_model');
+$viewModel->setMode($block->getMode());
+$viewModel->setBlock($block);
+$helper = $viewModel->getHelper();
+if (!$helper->isEnabled() || !$helper->isEnhancedEcommerceEnabled() || $helper->isCategoryAjaxEnabled()) {
+    return;
+}
+$products = $viewModel->getProductsData();
+$cats = $viewModel->getRemarketingCategories();
+$siosEnabled = (bool) $helper->isSIOSEnabled();
+$selector = trim((string) $helper->getPICText());
+if ($selector === '') {
+    $selector = 'div.products ol.product-items li.product-item';
+}
+$threshold = max(0, min(100, (float) $helper->getScrollThreshold())) / 100;
+?>
+<script type="text/javascript"<?= /* @noEscape */ $viewModel->getNonce() ?>>
+(function () {
+    'use strict';
+    const tracking = window.ScommerceHyva.getTracking();
+    const products = <?= /* @noEscape */ json_encode($products, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+    tracking.setData('category', <?= /* @noEscape */ json_encode((string) $viewModel->getCategoryName()) ?>);
+    tracking.setData('category_full', <?= /* @noEscape */ json_encode((string) $cats['full']) ?>);
+    tracking.setData('category_plain', <?= /* @noEscape */ json_encode((string) $cats['plain']) ?>);
+
+    <?php if ($siosEnabled): ?>
+    tracking.setImpressionListData(products, true);
+    const initSios = function () {
+        let elements;
+        try {
+            elements = Array.from(document.querySelectorAll(<?= /* @noEscape */ json_encode($selector) ?>));
+        } catch (error) {
+            elements = [];
+        }
+        if (!elements.length) {
+            elements = Array.from(document.querySelectorAll('.product-item'));
+        }
+        if (!elements.length || !('IntersectionObserver' in window)) {
+            if (products.length) {
+                tracking.fire('listing_scroll', products);
+            }
+            return;
+        }
+        const sent = new Set();
+        const observer = new IntersectionObserver(function (entries) {
+            const impressions = [];
+            entries.forEach(function (entry) {
+                if (!entry.isIntersecting) {
+                    return;
+                }
+                const index = elements.indexOf(entry.target);
+                if (index < 0 || index >= products.length || sent.has(index)) {
+                    return;
+                }
+                sent.add(index);
+                impressions.push(products[index]);
+                observer.unobserve(entry.target);
+            });
+            if (impressions.length) {
+                tracking.fire('listing_scroll', impressions);
+            }
+        }, {threshold: <?= /* @noEscape */ json_encode($threshold) ?>});
+        elements.slice(0, products.length).forEach(function (element) {
+            observer.observe(element);
+        });
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSios, {once: true});
+    } else {
+        initSios();
+    }
+    <?php else: ?>
+    tracking.setImpressionListData(products);
+    <?php endif; ?>
+
+    tracking.fire('page_ready', (tracking.getPageType() || 'category').toLowerCase());
+})();
+</script>

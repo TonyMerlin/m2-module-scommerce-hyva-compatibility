@@ -1,0 +1,98 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Scommerce\TrackingBase\ViewModel\TrackingDataContainer $viewModel */
+/** @var \Merlin\ScommerceHyvaCompatibility\ViewModel\CompatibilityConfig $compatibilityViewModel */
+$viewModel = $block->getData('view_model');
+$compatibilityViewModel = $block->getData('compatibility_view_model');
+if (!$viewModel || !$viewModel->isEnabled()) {
+    return;
+}
+$productToBasket = $viewModel->getProductToBasket();
+$productToWishlist = $viewModel->getProductToWishlist();
+$productOutBasket = $viewModel->getProductOutBasket();
+$skipPageReady = (bool) $block->getData('skip_page_ready');
+$consentModeData = $viewModel->getConsentCookiesConfiguration();
+$amastyConsentAuthoritative = $compatibilityViewModel
+    ? $compatibilityViewModel->isAmastyGoogleConsentModeActive()
+    : false;
+
+$assetBase = 'Merlin_ScommerceHyvaCompatibility::js/';
+$urls = [
+    'addToCartUrl' => $block->getUrl('sctracking/index/addtocart'),
+    'unsAddToCartUrl' => $block->getUrl('sctracking/index/unsaddtocart'),
+    'removeFromCartUrl' => $block->getUrl('sctracking/index/removefromcart'),
+    'unsRemoveFromCartUrl' => $block->getUrl('sctracking/index/unsremovefromcart'),
+    'saveImpressionUrl' => $block->getUrl('sctracking/index/saveimpression'),
+    'wishlistStateUrl' => $block->getUrl('merlin_scommerce_hyva/tracking/wishlist'),
+];
+?>
+<script src="<?= $escaper->escapeUrl($block->getViewFileUrl($assetBase . 'tracking.js')) ?>"></script>
+<script src="<?= $escaper->escapeUrl($block->getViewFileUrl($assetBase . 'ga4.js')) ?>"></script>
+<script src="<?= $escaper->escapeUrl($block->getViewFileUrl($assetBase . 'remarketing.js')) ?>"></script>
+<script src="<?= $escaper->escapeUrl($block->getViewFileUrl($assetBase . 'interactions.js')) ?>"></script>
+<script src="<?= $escaper->escapeUrl($block->getViewFileUrl($assetBase . 'consent.js')) ?>"></script>
+<script type="text/javascript"<?= /* @noEscape */ $viewModel->getNonce() ?>>
+(function () {
+    'use strict';
+    const tracking = window.ScommerceHyva.getTracking();
+    window.ScommerceHyva.config = Object.assign(window.ScommerceHyva.config || {},
+        <?= /* @noEscape */ json_encode($urls, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+    );
+
+    tracking.setPageType(<?= /* @noEscape */ json_encode($viewModel->getPageType($block)) ?>);
+    tracking.setSendFullList(<?= /* @noEscape */ json_encode((string) $viewModel->getSendFullList()) ?>);
+    tracking.setSendDefaultList(<?= /* @noEscape */ json_encode((string) $viewModel->getSendDefaultList()) ?>);
+    tracking.setDefaultList(<?= /* @noEscape */ json_encode((string) $viewModel->getDefaultList()) ?>);
+    tracking.setCurrency(<?= /* @noEscape */ json_encode((string) $viewModel->getCurrency()) ?>);
+    tracking.setData('isGuest', <?= (int) $viewModel->isGuest() ?>);
+
+    window.ScommerceHyva.consent.init({
+        enabled: <?= $viewModel->isConsentModeEnabled() ? 'true' : 'false' ?>,
+        amastyAuthoritative: <?= $amastyConsentAuthoritative ? 'true' : 'false' ?>,
+        config: <?= /* @noEscape */ json_encode($consentModeData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+    });
+
+    <?php if ($productToBasket): ?>
+    (function () {
+        const cartData = <?= /* @noEscape */ json_encode($productToBasket, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+        <?php if (!isset($productToBasket[0]['list'])): ?>
+        cartData.forEach(function (product) {
+            const impression = tracking.getProductImpression(product.allSkus);
+            product.list = impression;
+            if (product._realProductId) {
+                tracking.sendQuoteImpression(product._realProductId, impression);
+            }
+        });
+        <?php endif; ?>
+        tracking.setAddToCart(cartData);
+    })();
+    <?php endif; ?>
+
+    <?php if ($productOutBasket): ?>
+    tracking.setRemoveFromCart(<?= /* @noEscape */ $productOutBasket ?>);
+    <?php endif; ?>
+
+    <?php if ($productToWishlist): ?>
+    (function () {
+        const wishlistData = <?= /* @noEscape */ json_encode($productToWishlist, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+        if (wishlistData && wishlistData.item) {
+            wishlistData.item.list = tracking.getProductImpression(wishlistData.item.allSkus);
+            tracking.setAddToWishlist(wishlistData);
+        }
+    })();
+    <?php endif; ?>
+
+    window.ScommerceHyva.interactions.init();
+
+    <?php if (!$skipPageReady): ?>
+    const firePageReady = function () {
+        tracking.fire('page_ready', (tracking.getPageType() || '').toLowerCase());
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', firePageReady, {once: true});
+    } else {
+        firePageReady();
+    }
+    <?php endif; ?>
+})();
+</script>

@@ -1,0 +1,25 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Scommerce\TrackingBase\ViewModel\Cart $viewModel */
+/** @var \Scommerce\TrackingBase\ViewModel\Checkout\Onepage $quoteViewModel */
+$viewModel = $block->getData('view_model');
+$quoteViewModel = $block->getData('quote_view_model');
+$viewModel->setBlock($block);
+$helper = $viewModel->getHelper();
+if (!$helper->isEnhancedEcommerceEnabled()) {
+    return;
+}
+?>
+<script type="text/javascript"<?= /* @noEscape */ $helper->getNonce() ?>>
+(function () {
+    'use strict';
+    const tracking = window.ScommerceHyva.getTracking();
+    tracking.setPageType('cart');
+    tracking.setImpressionListData(<?= /* @noEscape */ json_encode($viewModel->getCrosssellProductsData(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>);
+    tracking.setData('total', <?= /* @noEscape */ json_encode((float) $quoteViewModel->getTotalValue()) ?>);
+    const cartData = <?= /* @noEscape */ json_encode($quoteViewModel->getProductsData(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+    tracking.setData('cart', cartData);
+    tracking.fire('page_ready', (tracking.getPageType() || 'cart').toLowerCase());
+    tracking.fire('view_cart', cartData);
+})();
+</script>

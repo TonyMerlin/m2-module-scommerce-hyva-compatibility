@@ -1,0 +1,356 @@
+<?php
+/** @var \Scommerce\GoogleTagManagerPro\Block\Gtm $block */
+$helper = $block->getHelper();
+if (!$helper->isEnabled()) {
+    return;
+}
+$viewModel = $block->getViewModel();
+$pageType = $viewModel->getPageType($block);
+$useGa4 = (bool) $helper->getAddGa4Events();
+$dynamicRemarketing = (bool) $helper->getDynamicRemarketingEnabled();
+$gdprEnabled = (bool) $helper->isGDPRCookieEnabled();
+$cookieKey = (string) $helper->getCookieKey();
+$forceDeclined = (bool) $helper->isGDPRCookieForceDeclined();
+?>
+<!-- Scommerce Mage Google Tag Manager - Hyva compatibility -->
+<script type="text/javascript"<?= /* @noEscape */ $helper->getNonce() ?>>
+(function () {
+    'use strict';
+    window.dataLayer = window.dataLayer || [];
+    window.conversionData = window.conversionData || {};
+
+    const tracking = window.ScommerceHyva.getTracking();
+    const ga4 = window.ScommerceHyva.ga4;
+    const affiliation = <?= /* @noEscape */ json_encode((string) $helper->getAffiliation()) ?>;
+    tracking.setData('affiliation', affiliation);
+
+    tracking.subscribe('page_view', function () {});
+    tracking.subscribe('home_page', function () {});
+
+    tracking.subscribe('page_ready', function (type) {
+        <?php if ($dynamicRemarketing): ?>
+        const remarketingData = window.ScommerceHyva.remarketing(
+            tracking,
+            type,
+            <?= (int) $block->getRemarketingType() ?>,
+            <?= (int) $block->sendEcommCategoryPath() ?>
+        );
+        window.dataLayer.push({
+            event: 'fireRemarketingTag_' + type,
+            google_tag_params: remarketingData
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('promo_view', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'view_promotion',
+            ecommerce: {items: ga4.convertPromotions(tracking, data)}
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('promo_click', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'select_promotion',
+            ecommerce: {
+                items: [{
+                    promotion_id: data.id,
+                    promotion_name: data.name,
+                    creative_name: data.creative,
+                    location_id: data.position,
+                    creative_slot: data.slot
+                }]
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('view_list', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'view_item_list',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                items: ga4.convertItemList(tracking, data)
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('listing_scroll', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'view_item_list',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                items: ga4.convertItemList(tracking, data)
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('item_click', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        const item = {
+            item_name: data.name,
+            item_id: data.id,
+            price: tracking.formatPrice(data.price, false),
+            item_brand: data.brand,
+            item_list_name: data.list,
+            item_list_id: tracking.getListId(data.list),
+            index: data.position
+        };
+        if (affiliation !== '') {
+            item.affiliation = affiliation;
+        }
+        ga4.addCategories(item, data.category);
+        window.dataLayer.push({event: 'select_item', ecommerce: {items: [item]}});
+        <?php endif; ?>
+    });
+
+    <?php if ($pageType === 'product'): ?>
+    (function () {
+        const product = tracking.getProductData();
+        if (!product) {
+            return;
+        }
+        <?php if ($useGa4): ?>
+        const item = {
+            item_name: product.name,
+            item_id: product.id,
+            price: tracking.formatPrice(product.price, false),
+            item_brand: product.brand,
+            index: 1
+        };
+        if (tracking.getData('affiliation') !== '') {
+            item.affiliation = tracking.getData('affiliation');
+        }
+        if (tracking.getSendDefaultList() == '1' || tracking.getDefaultList() != product.list) {
+            item.item_list_name = product.list;
+            item.item_list_id = tracking.getListId(product.list);
+        }
+        ga4.addCategories(item, product.category);
+        window.dataLayer.push({
+            event: 'view_item',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                value: product.price,
+                items: [item]
+            }
+        });
+        <?php endif; ?>
+    })();
+    <?php endif; ?>
+
+    tracking.subscribe('add_to_cart', function (data) {
+        let currency = '';
+        let totalValue = 0;
+        const products = data.map(function (item) {
+            currency = item.currency;
+            totalValue += Number(item.price) * Number(item.qty);
+            return {
+                name: item.name,
+                id: item.id,
+                price: tracking.formatPrice(item.price, false),
+                brand: item.brand,
+                category: item.category,
+                quantity: item.qty,
+                list: item.list
+            };
+        });
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'add_to_cart',
+            ecommerce: {
+                currency: currency,
+                value: totalValue,
+                items: ga4.convertAddToCartItem(tracking, products)
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('remove_from_cart', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        const item = {
+            item_name: data.name,
+            item_id: data.id,
+            price: tracking.formatPrice(data.price, false),
+            item_brand: data.brand,
+            quantity: data.qty,
+            index: 1
+        };
+        if (tracking.getData('affiliation') !== '') {
+            item.affiliation = tracking.getData('affiliation');
+        }
+        if (tracking.getSendDefaultList() == '1' || tracking.getDefaultList() != data.list) {
+            item.item_list_name = data.list;
+            item.item_list_id = tracking.getListId(data.list);
+        }
+        ga4.addCategories(item, data.category);
+        window.dataLayer.push({
+            event: 'remove_from_cart',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                value: item.price * item.quantity,
+                items: [item]
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('view_cart', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'view_cart',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                value: tracking.getData('total'),
+                items: ga4.convertCheckoutItems(tracking, data)
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('add_to_wishlist', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'add_to_wishlist',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                value: tracking.formatPrice(data.value, false),
+                items: ga4.convertWishlistItems(tracking, data)
+            }
+        });
+        <?php endif; ?>
+    });
+
+    tracking.subscribe('begin_checkout', function (data) {
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'begin_checkout',
+            ecommerce: {
+                currency: tracking.getData('currency'),
+                value: tracking.getData('total'),
+                items: ga4.convertCheckoutItems(tracking, data)
+            }
+        });
+        <?php endif; ?>
+    });
+
+    function pushCheckoutInfo(data) {
+        <?php if ($useGa4): ?>
+        if (data.stepType === 'shipment') {
+            window.dataLayer.push({ecommerce: null});
+            window.dataLayer.push({
+                event: 'add_shipping_info',
+                ecommerce: {
+                    currency: tracking.getData('currency'),
+                    value: tracking.getData('total'),
+                    coupon: tracking.getData('coupon'),
+                    shipping_tier: data.option,
+                    items: ga4.convertPurchaseItems(tracking, data.products)
+                }
+            });
+        }
+        if (data.stepType === 'payment') {
+            window.dataLayer.push({ecommerce: null});
+            window.dataLayer.push({
+                event: 'add_payment_info',
+                ecommerce: {
+                    currency: tracking.getData('currency'),
+                    value: tracking.getData('total'),
+                    coupon: tracking.getData('coupon'),
+                    payment_type: data.option,
+                    items: ga4.convertPurchaseItems(tracking, data.products)
+                }
+            });
+        }
+        <?php endif; ?>
+    }
+    tracking.subscribe('checkout_step', pushCheckoutInfo);
+    tracking.subscribe('checkout_option', pushCheckoutInfo);
+
+    <?php if ($pageType === 'purchase'): ?>
+    (function () {
+        const purchaseData = tracking.getPurchaseData();
+        if (!purchaseData) {
+            return;
+        }
+        <?php if ($useGa4): ?>
+        window.dataLayer.push({
+            event: 'purchase',
+            ecommerce: {
+                transaction_id: purchaseData.id,
+                affiliation: tracking.getData('affiliation'),
+                value: tracking.formatPrice(purchaseData.revenue, false),
+                tax: tracking.formatPrice(purchaseData.tax, false),
+                shipping: tracking.formatPrice(purchaseData.shipping, false),
+                coupon: purchaseData.coupon,
+                currency: tracking.getCurrency(),
+                items: ga4.convertPurchaseItems(tracking, purchaseData.products),
+                isCustomerNew: tracking.getData('is_customer_new')
+            }
+        });
+        <?php endif; ?>
+        <?php if ($block->isEnhancedConversionEnabled()): ?>
+        const conversionDataToSend = tracking.getData('conversion_pii');
+        const conversionItems = tracking.getData('conversion_items');
+        window.dataLayer.push({ecommerce: null});
+        window.dataLayer.push({
+            event: 'conversion_pii',
+            items: ga4.convertPurchaseItems(tracking, conversionItems, true),
+            conversionData: conversionDataToSend
+        });
+        window.conversionData = conversionDataToSend;
+        <?php endif; ?>
+    })();
+    <?php endif; ?>
+
+    function getCookie(name) {
+        if (!name) {
+            return null;
+        }
+        const prefix = name + '=';
+        const parts = document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i].trim();
+            if (part.indexOf(prefix) === 0) {
+                return decodeURIComponent(part.substring(prefix.length));
+            }
+        }
+        return null;
+    }
+
+    window.scStartGTM = function () {
+        tracking.startEvents();
+        <?php if ($gdprEnabled): ?>
+        const cookieKey = <?= /* @noEscape */ json_encode($cookieKey) ?>;
+        const forceDeclined = <?= $forceDeclined ? 'true' : 'false' ?>;
+        const cookie = getCookie(cookieKey);
+        const needShowTag = cookieKey.length === 0
+            || (!forceDeclined ? !(cookie === null || cookie === '0') : cookie === '1');
+        if (!needShowTag) {
+            return;
+        }
+        <?php endif; ?>
+        <?= /* @noEscape */ $block->getGtmScript() ?>
+    };
+
+    window.scStartGTM();
+})();
+</script>
+<!-- Scommerce Mage End Google Tag Manager - Hyva compatibility -->

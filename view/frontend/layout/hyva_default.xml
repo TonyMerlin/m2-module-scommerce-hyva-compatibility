@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceBlock name="scommerce_tracking_data"
+                        template="Merlin_ScommerceHyvaCompatibility::tracking/init.phtml">
+            <arguments>
+                <argument name="compatibility_view_model" xsi:type="object">Merlin\ScommerceHyvaCompatibility\ViewModel\CompatibilityConfig</argument>
+            </arguments>
+        </referenceBlock>
+        <referenceBlock name="scommerce_traking_slider"
+                        template="Merlin_ScommerceHyvaCompatibility::tracking/slider.phtml"/>
+        <referenceBlock name="google_tag_manager_pro_js"
+                        template="Merlin_ScommerceHyvaCompatibility::gtm/init.phtml"/>
+        <referenceBlock name="google_tag_manager_pro_cookies"
+                        template="Merlin_ScommerceHyvaCompatibility::gtm/cookies.phtml"/>
+    </body>
+</page>
